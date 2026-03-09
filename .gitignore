@@ -11,6 +11,9 @@ bin/
 pkg/
 vendor/
 
+static/uploads/*
+!static/uploads/.gitkeep
+
 go.sum
 go.work
 go.work.sum

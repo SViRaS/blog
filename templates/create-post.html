@@ -1,0 +1,13 @@
+<form method="POST" action="/dashboard/create" enctype="multipart/form-data">
+
+    <input type="text" name="title" placeholder="Заголовок поста" required maxlength="255">
+    <textarea name="content" placeholder="Содержание поста..." required></textarea>
+
+    <div>
+        <label for="image">Изображение (необязательно):</label>
+        <input type="file" name="image" id="image" accept="image/*">
+        <small style="color: #666;">JPG, PNG, GIF (макс. 20mB)</small>
+    </div>
+
+    <button type="submit">💾 Опубликовать</button>
+</form>

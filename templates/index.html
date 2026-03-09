@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ .Title }}</title>
+</head>
+<body>
+    <header>
+        <h1>{{ .Heading }}</h1>
+        
+        {{ if .CurrentUser }}
+            <p>👤 <strong>{{ .CurrentUser.Username }}</strong></p>
+            <form action="/logout" method="POST">
+                <button type="submit">Выйти</button>
+            </form>
+        {{ else }}
+            <p><a href="/login">Войти</a> | <a href="/register">Регистрация</a></p>
+        {{ end }}
+    </header>
+    
+    <main>
+        <p>{{ .Content }}</p>
+    </main>
+</body>
+</html>

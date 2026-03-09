@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Регистрация — Мой Блог</title>
+    <style>
+        body { font-family: sans-serif; max-width: 400px; margin: 50px auto; padding: 20px; }
+        form { display: flex; flex-direction: column; gap: 15px; }
+        input { padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        button:hover { background: #0056b3; }
+        .error { color: red; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>🔐 Регистрация</h1>
+    
+    <form method="POST" action="/register">
+        <input type="text" name="username" placeholder="Имя пользователя" required minlength="3">
+        <input type="email" name="email" placeholder="Email" required>
+        <input type="password" name="password" placeholder="Пароль" required minlength="6">
+        <button type="submit">Создать аккаунт</button>
+    </form>
+    
+    <p>Уже есть аккаунт? <a href="/login">Войти</a></p>
+    <p><a href="/">← На главную</a></p>
+</body>
+</html>

@@ -14,6 +14,53 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+func (h *Handler) ViewPostHandler(w http.ResponseWriter, r *http.Request) {
+	postIDStr := chi.URLParam(r, "id")
+	postID, err := strconv.ParseUint(postIDStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Неверный ID поста", http.StatusBadRequest)
+		return
+	}
+
+	var post models.Post
+	err = h.DB.
+		Preload("User").
+		Preload("Comments.User").
+		First(&post, postID).Error
+
+	if err != nil {
+		http.Error(w, "Пост не найден", http.StatusNotFound)
+		return
+	}
+
+	user := GetCurrentUser(r, h.DB, h.Store)
+
+	data := map[string]interface{}{
+		"Title":       post.Title,
+		"Post":        post,
+		"CurrentUser": user,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	h.Templates.ExecuteTemplate(w, "view-post.html", data)
+}
+
+func (h *Handler) AllPostsHandler(w http.ResponseWriter, r *http.Request) {
+	var posts []models.Post
+	h.DB.
+		Order("created_at DESC").
+		Preload("User").
+		Find(&posts)
+
+	data := map[string]interface{}{
+		"Title": "Посты",
+		"Posts": posts,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	h.Templates.ExecuteTemplate(w, "all-posts.html", data)
+}
+
 func (h *Handler) MyPostsHandler(w http.ResponseWriter, r *http.Request) {
 	user := GetCurrentUser(r, h.DB, config.Store)
 
@@ -253,4 +300,66 @@ func isValidImage(contentType string) bool {
 		"image/webp": true,
 	}
 	return allowedTypes[contentType]
+}
+
+func (h *Handler) CommentPage(w http.ResponseWriter, r *http.Request) {
+	user := GetCurrentUser(r, h.DB, config.Store)
+
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	var comments []models.Comment
+	h.DB.
+		Order("created_at DESC").
+		Preload("User").
+		Find(&comments)
+
+	data := map[string]interface{}{
+		"User":  user,
+		"Title": comments,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	h.Templates.ExecuteTemplate(w, "index.html", data)
+}
+
+func (h *Handler) CreateCommentHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user := GetCurrentUser(r, h.DB, config.Store)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	postIDStr := chi.URLParam(r, "id")
+	postID, err := strconv.ParseUint(postIDStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Неверный ID поста", http.StatusBadRequest)
+		return
+	}
+
+	content := r.FormValue("content")
+	if content == "" {
+		http.Error(w, "Комментарий не может быть пустым", http.StatusBadRequest)
+		return
+	}
+
+	comment := models.Comment{
+		Title:  content,
+		UserID: user.ID,
+		PostID: uint(postID),
+	}
+
+	if err := h.DB.Create(&comment).Error; err != nil {
+		http.Error(w, "Ошибка сохранения: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/post/%d", postID), http.StatusSeeOther)
 }

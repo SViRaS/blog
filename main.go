@@ -38,6 +38,7 @@ func main() {
 	r.Get("/login", h.LoginPage)
 	r.Post("/login", h.LoginSubmit)
 	r.Post("/logout", h.Logout)
+	r.Get("/post/{id}", h.ViewPostHandler)
 
 	r.Route("/dashboard", func(r chi.Router) {
 		r.Use(handlers.RequireAuth)
@@ -45,7 +46,10 @@ func main() {
 		r.Get("/posts", h.MyPostsHandler)
 
 		r.Get("/create", h.CreatePostPage)
+
 		r.Post("/create", h.CreatePostSubmit)
+
+		r.Post("/comment", h.CreateCommentHandler)
 
 		r.Get("/post/{id}/edit", h.EditPostPage)
 		r.Post("/post/{id}/edit", h.EditPostSubmit)

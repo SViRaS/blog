@@ -28,7 +28,7 @@ func ConnectDB() error {
 		return err
 	}
 
-	err = DB.AutoMigrate(&models.User{}, &models.Post{})
+	err = DB.AutoMigrate(&models.User{}, &models.Post{}, &models.Comment{})
 	if err != nil {
 		return err
 	}

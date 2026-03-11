@@ -40,6 +40,11 @@ func main() {
 	r.Post("/logout", h.Logout)
 	r.Get("/post/{id}", h.ViewPostHandler)
 
+	r.Route("/post/{id}", func(r chi.Router) {
+		r.Get("/", h.ViewPostHandler)
+		r.Post("/comment", h.CreateCommentHandler)
+	})
+
 	r.Route("/dashboard", func(r chi.Router) {
 		r.Use(handlers.RequireAuth)
 

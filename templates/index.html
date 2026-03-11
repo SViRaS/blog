@@ -1,15 +1,12 @@
 <!DOCTYPE html>
 <html lang="ru">
-
 <head>
     <meta charset="UTF-8">
     <title>{{ .Title }}</title>
 </head>
-
 <body>
     <header>
         <h1>{{ .Heading }}</h1>
-
         {{ if .CurrentUser }}
         <p>👤 <strong>{{ .CurrentUser.Username }}</strong></p>
         <form action="/logout" method="POST">
@@ -21,20 +18,55 @@
     </header>
 
     <main>
-        <!-- <p>{{ .Content }}</p> -->
-         <p>👤 <strong>"БЛОГИ"</strong></p>
-          {{ range .Posts }}
+        <p>👤 <strong>"БЛОГИ"</strong></p>
+        
+        {{ $format := "02.01.2006 15:04" }}
+        
+        {{ range .Posts }}
         <div class="post">
             {{ if .Image }}
             <img src="/{{ .Image }}" alt="{{ .Title }}"
                 style="max-width: 100%; max-height: 300px; border-radius: 6px; margin-bottom: 15px;">
             {{ end }}
+            
             <h3>{{ .User.Username }}</h3>
             <h3>{{ .Title }}</h3>
-            <div class="post-meta">{{ .CreatedAt.Format "02.01.2006 15:04" }}</div>
+            <div class="post-meta">{{ .CreatedAt.Format $format }}</div>
             <p>{{ .Content }}</p>
-        </div>
-        {{ end }}
+
+            {{ if .Comments }}
+            <div class="comments-list" style="margin: 20px 0; padding: 15px; background: #f1f3f5; border-radius: 8px;">
+                <h4 style="margin-top: 0;">💬 Комментарии ({{ len .Comments }})</h4>
+                
+                {{ range .Comments }}
+                <div class="comment" style="padding: 10px 0; border-bottom: 1px solid #ddd;">
+                    <p style="margin: 0;">
+                        <strong>{{ .User.Username }}</strong>
+                        <small style="color: #666; margin-left: 8px;">{{ .CreatedAt.Format $format }}</small>
+                    </p>
+                    <p style="margin: 5px 0 0 0; color: #444;">{{ .Content }}</p>
+                </div>
+                {{ end }}
+            </div>
+            {{ end }}
+            {{ if $.CurrentUser }}
+            <form method="POST" action="/post/{{ .ID }}/comment"
+                style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                <textarea name="content" placeholder="Напишите комментарий..." required
+                    style="width: 100%; min-height: 60px; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; margin-bottom: 10px;"></textarea>
+                <button type="submit"
+                    style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Отправить 💬
+                </button>
+            </form>
+            {{ else }}
+            <p style="margin-top: 15px; color: #666;">
+                <a href="/login">Войдите</a>, чтобы оставить комментарий.
+            </p>
+            {{ end }}
+            
+        </div> 
+        {{ end }} 
     </main>
 </body>
 </html>

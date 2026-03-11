@@ -12,10 +12,12 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"gorm.io/gorm"
 )
 
 func (h *Handler) ViewPostHandler(w http.ResponseWriter, r *http.Request) {
 	postIDStr := chi.URLParam(r, "id")
+
 	postID, err := strconv.ParseUint(postIDStr, 10, 32)
 	if err != nil {
 		http.Error(w, "Неверный ID поста", http.StatusBadRequest)
@@ -25,7 +27,9 @@ func (h *Handler) ViewPostHandler(w http.ResponseWriter, r *http.Request) {
 	var post models.Post
 	err = h.DB.
 		Preload("User").
-		Preload("Comments.User").
+		Preload("Comments", func(db *gorm.DB) *gorm.DB {
+			return db.Preload("User").Order("created_at ASC")
+		}).
 		First(&post, postID).Error
 
 	if err != nil {
@@ -34,15 +38,31 @@ func (h *Handler) ViewPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := GetCurrentUser(r, h.DB, h.Store)
+	if user != nil {
+		log.Printf("👤 [ViewPostHandler] Текущий пользователь: %s (ID=%d)", user.Username, user.ID)
+	} else {
+		log.Printf("👤 [ViewPostHandler] Пользователь не авторизован")
+	}
 
 	data := map[string]interface{}{
 		"Title":       post.Title,
 		"Post":        post,
 		"CurrentUser": user,
+		"Comments":    post.Comments,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	h.Templates.ExecuteTemplate(w, "view-post.html", data)
+
+	log.Printf("🎨 [ViewPostHandler] Рендеринг шаблона: view-post.html")
+
+	err = h.Templates.ExecuteTemplate(w, "view-post.html", data)
+	if err != nil {
+		log.Printf("❌ [ViewPostHandler] КРИТИЧЕСКАЯ ОШИБКА рендеринга шаблона: %v", err)
+		log.Printf("📋 [ViewPostHandler] Данные шаблона: %+v", data)
+
+		return
+	}
+
 }
 
 func (h *Handler) AllPostsHandler(w http.ResponseWriter, r *http.Request) {
@@ -302,29 +322,6 @@ func isValidImage(contentType string) bool {
 	return allowedTypes[contentType]
 }
 
-func (h *Handler) CommentPage(w http.ResponseWriter, r *http.Request) {
-	user := GetCurrentUser(r, h.DB, config.Store)
-
-	if user == nil {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
-
-	var comments []models.Comment
-	h.DB.
-		Order("created_at DESC").
-		Preload("User").
-		Find(&comments)
-
-	data := map[string]interface{}{
-		"User":  user,
-		"Title": comments,
-	}
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	h.Templates.ExecuteTemplate(w, "index.html", data)
-}
-
 func (h *Handler) CreateCommentHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -351,9 +348,9 @@ func (h *Handler) CreateCommentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	comment := models.Comment{
-		Title:  content,
-		UserID: user.ID,
-		PostID: uint(postID),
+		Content: content,
+		UserID:  user.ID,
+		PostID:  uint(postID),
 	}
 
 	if err := h.DB.Create(&comment).Error; err != nil {

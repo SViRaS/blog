@@ -360,3 +360,115 @@ func (h *Handler) CreateCommentHandler(w http.ResponseWriter, r *http.Request) {
 
 	http.Redirect(w, r, fmt.Sprintf("/post/%d", postID), http.StatusSeeOther)
 }
+
+func (h *Handler) EditCommentHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user := GetCurrentUser(r, h.DB, config.Store)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	postIDStr := chi.URLParam(r, "id")
+	commentIDStr := chi.URLParam(r, "commentID")
+
+	postID, err := strconv.ParseUint(postIDStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Неверный ID поста", http.StatusBadRequest)
+		return
+	}
+
+	commentID, err := strconv.ParseUint(commentIDStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Неверный ID комментария", http.StatusBadRequest)
+		return
+	}
+
+	var comment models.Comment
+	err = h.DB.First(&comment, commentID).Error
+	if err != nil {
+		http.Error(w, "Комментарий не найден", http.StatusNotFound)
+		return
+	}
+
+	if user.ID != comment.UserID {
+		http.Error(w, "ID пользователей не совпадают", http.StatusBadRequest)
+		return
+	}
+
+	if comment.PostID != uint(postID) {
+		http.Error(w, "Комментарий не принадлежит этому посту", http.StatusBadRequest)
+		return
+	}
+
+	content := r.FormValue("content")
+	if content == "" {
+		http.Error(w, "Комментарий не может быть пустым", http.StatusBadRequest)
+		return
+	}
+
+	comment.Content = content
+	comment.UpdatedAt = time.Now().Local()
+
+	if err := h.DB.Save(&comment).Error; err != nil {
+		http.Error(w, "Ошибка сохранения: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/post/%d", postID), http.StatusSeeOther)
+}
+
+func (h *Handler) DeleteCommentHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user := GetCurrentUser(r, h.DB, config.Store)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	postIDStr := chi.URLParam(r, "id")
+	commentIDStr := chi.URLParam(r, "commentID")
+
+	postID, err := strconv.ParseUint(postIDStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Неверный ID поста", http.StatusBadRequest)
+		return
+	}
+
+	commentID, err := strconv.ParseUint(commentIDStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Неверный ID комментария", http.StatusBadRequest)
+		return
+	}
+
+	var comment models.Comment
+	if err := h.DB.First(&comment, commentID).Error; err != nil {
+		http.Error(w, "Комментарий не найден", http.StatusNotFound)
+		return
+	}
+
+	if comment.UserID != user.ID {
+		http.Error(w, "Нет прав для удаления этого комментария", http.StatusForbidden)
+		return
+	}
+
+	if comment.PostID != uint(postID) {
+		http.Error(w, "Комментарий не принадлежит этому посту", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.DB.Delete(&comment).Error; err != nil {
+		http.Error(w, "Ошибка удаления: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/post/%d", postID), http.StatusSeeOther)
+}

@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <title>{{ .Title }}</title>
 </head>
+
 <body>
     <header>
         <h1>{{ .Heading }}</h1>
@@ -11,29 +13,52 @@
 
     <main>
         <div class="post">
-            
+
             {{ if .Post.Image }}
             <img src="/{{ .Post.Image }}" alt="{{ .Post.Title }}" style="max-width: 100%;">
             {{ end }}
-            
+
             <h2>{{ .Post.Title }}</h2>
             <div class="post-meta">
                 Автор: {{ .Post.User.Username }} • {{ .Post.CreatedAt.Format "02.01.2006 15:04" }}
             </div>
-            
+
             <p>{{ .Post.Content }}</p>
 
             {{ if .Post.Comments }}
             <div class="comments-list" style="margin: 20px 0; padding: 15px; background: #f1f3f5; border-radius: 8px;">
                 <h4>💬 Комментарии ({{ len .Post.Comments }})</h4>
-                
+
                 {{ range .Post.Comments }}
                 <div class="comment" style="padding: 10px 0; border-bottom: 1px solid #ddd;">
                     <p style="margin: 0;">
                         <strong>{{ .User.Username }}</strong>
-                        <small style="color: #666;">{{ .CreatedAt.Format "02.01.2006 15:04" }}</small>
+                        <small style="color: #666;">
+                            {{ .CreatedAt.Format "02.01.2006 15:04" }}
+                        </small>
                     </p>
+
                     <p style="margin: 5px 0 0 0;">{{ .Content }}</p>
+
+                    {{ if and $.CurrentUser (eq $.CurrentUser.ID .UserID) }}
+                    <div style="margin-top: 8px; display: flex; gap: 8px;">
+                        <form method="POST" action="/post/{{ $.Post.ID }}/comment/{{ .ID }}/edit" style="flex: 1;">
+                            <textarea name="content"
+                                style="width: 100%; min-height: 60px; padding: 6px; border-radius: 4px; border: 1px solid #ccc;">{{ .Content }}</textarea>
+                            <button type="submit"
+                                style="margin-top: 4px; padding: 4px 8px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                Сохранить
+                            </button>
+                        </form>
+
+                        <form method="POST" action="/post/{{ $.Post.ID }}/comment/{{ .ID }}/delete">
+                            <button type="submit"
+                                style="padding: 4px 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                Удалить
+                            </button>
+                        </form>
+                    </div>
+                    {{ end }}
                 </div>
                 {{ end }}
             </div>
@@ -45,10 +70,10 @@
             {{ if $.CurrentUser }}
             <form method="POST" action="/post/{{ .Post.ID }}/comment"
                 style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                
+
                 <textarea name="content" placeholder="Напишите комментарий..." required
                     style="width: 100%; min-height: 80px; padding: 10px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 10px; font-family: inherit;"></textarea>
-                
+
                 <button type="submit"
                     style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
                     Отправить 💬
@@ -61,8 +86,9 @@
             {{ end }}
 
 
-        </div> 
+        </div>
 
     </main>
 </body>
+
 </html>

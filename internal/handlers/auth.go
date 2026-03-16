@@ -101,3 +101,52 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
+
+func (h *Handler) APILogin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		respondJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "метод не разрешён"})
+		return
+	}
+
+	var body struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}	
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "неверный JSON"})
+		return
+	}
+
+	if body.Email == "" || body.Password == "" {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "email и password обязательны"})
+		return
+	}
+
+	var user models.User
+	if err := h.DB.Where("email = ?", body.Email).First(&user).Error; err != nil {
+		respondJSON(w, http.StatusUnauthorized, map[string]string{"error": "неверная почта или пароль"})
+		return
+	}
+
+	if !user.CheckPassword(body.Password) {
+		respondJSON(w, http.StatusUnauthorized, map[string]string{"error": "неверная почта или пароль"})
+		return
+	}
+
+	token, ttl, err := auth.IssueAccess(user.ID)
+	if err != nil {
+		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": "ошибка выдачи токена"})
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"access_token": token,
+		"expires_in":   int(ttl.Seconds()),
+	})
+}
+
+func respondJSON(w http.ResponseWriter, code int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(code)
+	_ = json.NewEncoder(w).Encode(data)
+}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"blog/internal/auth"
 	"blog/internal/config"
 	"blog/internal/database"
 	"blog/internal/handlers"
@@ -16,6 +17,7 @@ func main() {
 	godotenv.Load()
 
 	config.InitStore()
+	auth.InitJWT()
 
 	if err := database.ConnectDB(); err != nil {
 		log.Fatal("Не удалось подключиться к БД:", err)
@@ -29,6 +31,7 @@ func main() {
 
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(handlers.RateLimit)
 
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
@@ -38,6 +41,10 @@ func main() {
 	r.Get("/login", h.LoginPage)
 	r.Post("/login", h.LoginSubmit)
 	r.Post("/logout", h.Logout)
+
+	r.Route("/api/auth", func(r chi.Router) {
+		r.Post("/login", h.APILogin)
+	})
 
 	r.Route("/post/{id}", func(r chi.Router) {
 		r.Get("/", h.ViewPostHandler)

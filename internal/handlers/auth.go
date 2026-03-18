@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"blog/internal/auth"
 	"blog/internal/config"
 	"blog/internal/models"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -111,7 +113,7 @@ func (h *Handler) APILogin(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
-	}	
+	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "неверный JSON"})
 		return
@@ -133,7 +135,7 @@ func (h *Handler) APILogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, ttl, err := auth.IssueAccess(user.ID)
+	token, ttl, err := auth.IssueAccessToken(user.ID)
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": "ошибка выдачи токена"})
 		return
@@ -149,4 +151,43 @@ func respondJSON(w http.ResponseWriter, code int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(data)
+}
+
+func (h *Handler) APIRefresh(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		respondJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "метод не разрешён"})
+		return
+	}
+
+	var body struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "неверный JSON"})
+		return
+	}
+
+	if body.RefreshToken == "" {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "refresh_token обязателен"})
+		return
+	}
+
+	userID, err := auth.ValidateRefreshToken(body.RefreshToken)
+	if err != nil {
+		respondJSON(w, http.StatusUnauthorized, map[string]string{"error": "неверный refresh_token"})
+		return
+	}
+
+	token, accessTTL, err := auth.IssueAccessToken(userID)
+	if err != nil {
+		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": "ошибка выдачи токена"})
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"access_token":       token,
+		"access_expires_in":  int(accessTTL.Seconds()),
+		"refresh_token":      body.RefreshToken,
+		"refresh_expires_in": int(auth.RefreshTTL().Seconds()),
+	})
 }

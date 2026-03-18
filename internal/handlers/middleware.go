@@ -3,21 +3,23 @@ package handlers
 import (
 	"blog/internal/config"
 	"net/http"
+	"sync"
+	"time"
 )
 
 var (
-    rateMu     sync.Mutex
-    clients    = make(map[string]*client)
+	rateMu  sync.Mutex
+	clients = make(map[string]*client)
 )
 
 type client struct {
-    count       int
-    windowStart time.Time
+	count       int
+	windowStart time.Time
 }
 
 const (
-    rateLimit     = 5
-    rateWindow    = 3 * time.Second
+	rateLimit  = 5
+	rateWindow = 3 * time.Second
 )
 
 func RequireAuth(next http.Handler) http.Handler {
@@ -41,7 +43,7 @@ func RateLimit(next http.Handler) http.Handler {
 		c, ok := clients[ip]
 		if !ok {
 			c = &client{
-				count: 0,
+				count:       0,
 				windowStart: now,
 			}
 			clients[ip] = c

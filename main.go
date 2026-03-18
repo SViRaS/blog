@@ -44,6 +44,7 @@ func main() {
 
 	r.Route("/api/auth", func(r chi.Router) {
 		r.Post("/login", h.APILogin)
+		r.Post("/refresh", h.APIRefresh)
 	})
 
 	r.Route("/post/{id}", func(r chi.Router) {

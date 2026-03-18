@@ -3,6 +3,8 @@ package handlers
 import (
 	"blog/internal/config"
 	"blog/internal/models"
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -356,6 +358,49 @@ func (h *Handler) CreateCommentHandler(w http.ResponseWriter, r *http.Request) {
 	if err := h.DB.Create(&comment).Error; err != nil {
 		http.Error(w, "Ошибка сохранения: "+err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	type notifyPayload struct {
+		Event          string    `json:"event"`
+		PostID         uint      `json:"post_id"`
+		CommentID      uint      `json:"comment_id"`
+		AuthorID       uint      `json:"author_id"`
+		AuthorUsername string    `json:"author_username"`
+		Content        string    `json:"content"`
+		CreatedAt      time.Time `json:"created_at"`
+	}
+
+	p := notifyPayload{
+		Event:          "comment_created",
+		PostID:         comment.PostID,
+		CommentID:      comment.ID,
+		AuthorID:       comment.UserID,
+		AuthorUsername: user.Username,
+		Content:        comment.Content,
+		CreatedAt:      comment.CreatedAt,
+	}
+
+	body, err := json.Marshal(p)
+	if err != nil {
+		log.Printf("notifier: marshal payload error: %v", err)
+	} else {
+		client := &http.Client{Timeout: 2 * time.Second}
+		req, err := http.NewRequest(http.MethodPost, "http://localhost:7071/notify", bytes.NewReader(body))
+		if err != nil {
+			log.Printf("notifier: build request error: %v", err)
+		} else {
+			req.Header.Set("Content-Type", "application/json; charset=utf-8")
+			resp, err := client.Do(req)
+			if err != nil {
+				log.Printf("notifier: request error: %v", err)
+			} else {
+				_ = resp.Body.Close()
+				if resp.StatusCode >= 300 {
+					log.Printf("notifier: non-2xx status: %s", resp.Status)
+				}
+			}
+
+		}
 	}
 
 	http.Redirect(w, r, fmt.Sprintf("/post/%d", postID), http.StatusSeeOther)

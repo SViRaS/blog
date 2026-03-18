@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"blog/internal/auth"
 	"blog/internal/config"
+	"context"
 	"net/http"
 	"sync"
 	"time"
@@ -18,8 +20,9 @@ type client struct {
 }
 
 const (
-	rateLimit  = 5
-	rateWindow = 3 * time.Second
+	rateLimit        = 5
+	rateWindow       = 3 * time.Second
+	userIDContextKey = "userID"
 )
 
 func RequireAuth(next http.Handler) http.Handler {
@@ -66,5 +69,22 @@ func RateLimit(next http.Handler) http.Handler {
 		rateMu.Unlock()
 
 		next.ServeHTTP(w, r)
+	})
+}
+
+func JWTAuth(httpHandler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token := r.Header.Get("Authorization")
+		if token == "" {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		userID, err := auth.ValidateAccessToken(token)
+		if err != nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		ctx := context.WithValue(r.Context(), userIDContextKey, userID)
+		httpHandler.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

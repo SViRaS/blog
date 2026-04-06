@@ -220,6 +220,53 @@ func (h *Handler) CreatePostSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	type notifyPayload struct {
+		Event          string    `json:"event"`
+		PostID         uint      `json:"post_id"`
+		CommentID      uint      `json:"comment_id"`
+		AuthorID       uint      `json:"author_id"`
+		AuthorUsername string    `json:"author_username"`
+		Content        string    `json:"content"`
+		CreatedAt      time.Time `json:"created_at"`
+	}
+
+	createdAt := post.CreatedAt
+	if createdAt.IsZero() {
+		createdAt = time.Now().Local()
+	}
+
+	p := notifyPayload{
+		Event:          "post_created",
+		PostID:         post.ID,
+		CommentID:      0,
+		AuthorID:       user.ID,
+		AuthorUsername: user.Username,
+		Content:        post.Title,
+		CreatedAt:      createdAt,
+	}
+
+	body, err := json.Marshal(p)
+	if err != nil {
+		log.Printf("notifier: marshal post payload error: %v", err)
+	} else {
+		client := &http.Client{Timeout: 2 * time.Second}
+		req, err := http.NewRequest(http.MethodPost, "http://localhost:7071/notify", bytes.NewReader(body))
+		if err != nil {
+			log.Printf("notifier: build post request error: %v", err)
+		} else {
+			req.Header.Set("Content-Type", "application/json; charset=utf-8")
+			resp, err := client.Do(req)
+			if err != nil {
+				log.Printf("notifier: post request error: %v", err)
+			} else {
+				_ = resp.Body.Close()
+				if resp.StatusCode >= 300 {
+					log.Printf("notifier: non-2xx status (post): %s", resp.Status)
+				}
+			}
+		}
+	}
+
 	http.Redirect(w, r, "/dashboard/posts", http.StatusSeeOther)
 }
 
